@@ -1,5 +1,3 @@
-const OpenAI = require("openai");
-
 module.exports = async (req, res) => {
   try {
     if (req.method !== "POST") {
@@ -23,10 +21,6 @@ module.exports = async (req, res) => {
       });
     }
 
-    const client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
-
     const prompt = `
 You are the top luxury real estate marketer in ${city}.
 
@@ -47,21 +41,37 @@ Produce EXACTLY in this order:
 8. 60-second video script
 `;
 
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7
+      })
     });
+
+    const data = await response.json();
+
+    if (!data.choices || !data.choices[0]) {
+      return res.status(500).json({
+        error: "OpenAI failed",
+        raw: data
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      output: completion.choices[0].message.content
+      output: data.choices[0].message.content
     });
 
   } catch (err) {
     console.error("AI ERROR:", err);
     return res.status(500).json({
-      error: "AI crashed",
+      error: "Server crashed",
       details: err.message
     });
   }
